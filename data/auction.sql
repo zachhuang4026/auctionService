@@ -12,7 +12,6 @@ CREATE TABLE auctions (
     currPrice FLOAT NOT NULL,
     currWinner varchar(100),
     status varchar(10) NOT NULL,
---    bidHistory varchar(10000),
     check(listingType IN ('AUCTION', 'BUYNOW')),
     check(status IN ('PENDING', 'ACTIVE', 'CLOSED'))
 );

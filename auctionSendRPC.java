@@ -12,10 +12,11 @@ public class auctionSendRPC implements AutoCloseable {
     private Connection connection;
     private Channel channel;
     private String QUEUE_NAME_RPC = "auctionServiceRPCQueue";
+    private IP_ADDRESS;
 
     public auctionSendRPC() throws IOException, TimeoutException {
         ConnectionFactory factory = new ConnectionFactory();
-        factory.setHost("172.17.0.4");
+        factory.setHost("172.20.0.7");
 
         connection = factory.newConnection();
         channel = connection.createChannel();

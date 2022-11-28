@@ -36,7 +36,8 @@ auction=# \i auction.sql
 
 **auction-service-msgconsumer**  
 ```
-root@auction-service-msgconsumer:/src# java -jar auctionService-1.0-SNAPSHOT.jar
+# java -jar auctionService-1.0-SNAPSHOT.jar [POSTGRES_IP_ADDRESS] [RABBITMQ_IP_ADDRESS]
+root@auction-service-msgconsumer:/src# java -jar auctionService-1.0-SNAPSHOT.jar 172.20.0.11 172.20.0.7
 ```
 
 **auction-service-msgproducer**  

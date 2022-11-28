@@ -14,11 +14,16 @@ import static java.sql.Types.VARCHAR;
 public class App {
 
     private final static String QUEUE_NAME_RPC = "auctionServiceRPCQueue";
+    private static String POSTGRES_IP_ADDRESS;
+    private static String RABBITMQ_IP_ADDRESS;
 
     private static java.sql.Connection getPostgresConnection() {
         try {
             Class.forName("org.postgresql.Driver");
-            String url = "jdbc:postgresql://172.17.0.6:5432/auction";  // TODO: fix IP
+            String url = "jdbc:postgresql://" + POSTGRES_IP_ADDRESS + ":5432/auction";  // TODO: fix IP
+            //String url = "jdbc:postgresql://localhost:5432/auction";
+            //System.out.println(url);
+
             String user = "postgres";
             String password = "abc123";
             return DriverManager.getConnection(url, user, password);
@@ -317,9 +322,11 @@ public class App {
     public static void main( String[] args ) throws Exception {
         System.out.println("My Auction Service");
 
-        ConnectionFactory factory = new ConnectionFactory();
-        factory.setHost("172.17.0.4");
+        POSTGRES_IP_ADDRESS = args[0];
+        RABBITMQ_IP_ADDRESS = args[1];
 
+        ConnectionFactory factory = new ConnectionFactory();
+        factory.setHost(RABBITMQ_IP_ADDRESS);
         com.rabbitmq.client.Connection connection = factory.newConnection();
         Channel channel = connection.createChannel();
         channel.queueDeclare(QUEUE_NAME_RPC, false, false, false, null);

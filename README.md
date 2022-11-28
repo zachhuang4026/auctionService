@@ -45,4 +45,16 @@ java auctionSendRPC [JSON request]
 root@auction-service-msgproducer:/src# javac auctionSendRPC.java 
 root@auction-service-msgproducer:/src# java auctionSendRPC "{"type":"getAuction","auctionID":"2948af85-6a10-4921-bc74-5573af7ce114"}"
 root@auction-service-msgproducer:/src# java auctionSendRPC {"type":"seeActiveAuctions"}
+root@auction-service-msgproducer:/src# java auctionSendRPC {"type":"seeClosedAuctions"}
+
+# success
+root@auction-service-msgproducer:/src# java auctionSendRPC '{"type":"bid", "auctionID":"12341234-6a10-4921-bc74-5573af7ce114", "bid": 6, "bidder":"cccccccc-6a10-4921-bc74-5573af7ce114"}'
+# fail: The new bid is not higher than the current price
+root@auction-service-msgproducer:/src# java auctionSendRPC '{"type":"bid", "auctionID":"12341234-6a10-4921-bc74-5573af7ce114", "bid": 6, "bidder":"cccccccc-6a10-4921-bc74-5573af7ce114"}'
+# fail: Auction has not started yet
+root@auction-service-msgproducer:/src# java auctionSendRPC '{"type":"bid", "auctionID":"aaaaaaaa-6a10-4921-bc74-5573af7ce114", "bid": 6, "bidder":"cccccccc-6a10-4921-bc74-5573af7ce114"}'
+
+# seeAllUserAuctions
+root@auction-service-msgproducer:/src# java auctionSendRPC '{"type":"bid", "auctionID":"34563456-6a10-4921-bc74-5573af7ce114", "bid": 4, "bidder":"cccccccc-6a10-4921-bc74-5573af7ce114"}'
+root@auction-service-msgproducer:/src# java auctionSendRPC '{"type":"seeAllUserAuctions", "userID":"cccccccc-6a10-4921-bc74-5573af7ce114"}'
 ```

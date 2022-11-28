@@ -4,14 +4,15 @@ import java.util.*;
 
 public class Auction {
 
-    public UUID auctionID;
-    public UUID itemID;
-    public long startTime;
-    public long endTime;
-    public double currPrice;
-    public UUID currWinner;
-    public List<Bid> bidHistory;
-    public AuctionStatus status;
+    private UUID auctionID;
+    private String listingType;
+    private UUID itemID;
+    private long startTime;
+    private long endTime;
+    private double currPrice;
+    private UUID currWinner;
+    private List<Bid> bidHistory;
+    private AuctionStatus status;
 
     public enum AuctionStatus {
         PENDING,
@@ -19,24 +20,26 @@ public class Auction {
         CLOSED,
     }
 
-    public Auction(UUID id, UUID itemID, long startTime, long endTime) {
-        this.auctionID = id;
+    public Auction(String listingType, UUID itemID, long startTime, long endTime, double startPrice) {
+        this.auctionID = UUID.randomUUID();
+        this.listingType = listingType;
         this.itemID = itemID;
         this.startTime = startTime;
         this.endTime = endTime;
-        this.currPrice = 0; /////////////
+        this.currPrice = startPrice;
         this.currWinner = null;/////////////////
         this.bidHistory = new ArrayList<>();
         this.status = AuctionStatus.PENDING; //////////
     }
 
-    public Auction(String auctionID, String itemID, long startTime, long endTime, double currPrice, String currWinner, String status) {
+    public Auction(String auctionID, String listingType, String itemID, long startTime, long endTime, double currPrice, String currWinner, String status) {
         this.auctionID = UUID.fromString(auctionID);
+        this.listingType = listingType;
         this.itemID = UUID.fromString(itemID);
         this.startTime = startTime;
         this.endTime = endTime;
         this.currPrice = currPrice;
-        this.currWinner = UUID.fromString(currWinner);
+        this.currWinner = currWinner == null ? null : UUID.fromString(currWinner);
         this.bidHistory = new ArrayList<>();
         if (status.equals("ACTIVE"))
             this.status = AuctionStatus.ACTIVE;
@@ -46,15 +49,15 @@ public class Auction {
             this.status = AuctionStatus.PENDING;
     }
 
-    public boolean updateBid(Bid bid) {
-        if (this.currPrice < bid.bid) {
-            this.bidHistory.add(bid);
-            this.currPrice = bid.bid;
-            this.currWinner = bid.bidder;
-            return true;
-        }
-        return false;
-    }
+//    public boolean updateBid(Bid bid) {
+//        if (this.currPrice < bid.bid) {
+//            this.bidHistory.add(bid);
+//            this.currPrice = bid.bid;
+//            this.currWinner = bid.bidder;
+//            return true;
+//        }
+//        return false;
+//    }
 
     public boolean startAuction() {
         return false;
@@ -75,6 +78,10 @@ public class Auction {
 
     public UUID getAuctionID() {
         return auctionID;
+    }
+
+    public String getListingType() {
+        return listingType;
     }
 
     public UUID getItemID() {
@@ -99,5 +106,9 @@ public class Auction {
 
     public List<Bid> getBidHistory() {
         return bidHistory;
+    }
+
+    public void setBidHistory(List<Bid> bidHistory) {
+        this.bidHistory = bidHistory;
     }
 }

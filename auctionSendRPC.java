@@ -11,7 +11,7 @@ public class auctionSendRPC implements AutoCloseable {
 
     private Connection connection;
     private Channel channel;
-    private String QUEUE_NAME_RPC = "auctionServiceTestQueueRPC";
+    private String QUEUE_NAME_RPC = "auctionServiceRPCQueue";
 
     public auctionSendRPC() throws IOException, TimeoutException {
         ConnectionFactory factory = new ConnectionFactory();

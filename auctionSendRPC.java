@@ -16,7 +16,7 @@ public class auctionSendRPC implements AutoCloseable {
 
     public auctionSendRPC() throws IOException, TimeoutException {
         ConnectionFactory factory = new ConnectionFactory();
-        factory.setHost("172.20.0.12");
+        factory.setHost("172.20.0.7");
 
         connection = factory.newConnection();
         channel = connection.createChannel();

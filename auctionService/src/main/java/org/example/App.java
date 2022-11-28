@@ -20,9 +20,7 @@ public class App {
     private static java.sql.Connection getPostgresConnection() {
         try {
             Class.forName("org.postgresql.Driver");
-            String url = "jdbc:postgresql://" + POSTGRES_IP_ADDRESS + ":5432/auction";  // TODO: fix IP
-            //String url = "jdbc:postgresql://localhost:5432/auction";
-            //System.out.println(url);
+            String url = "jdbc:postgresql://" + POSTGRES_IP_ADDRESS + ":2345/auction";  // TODO: fix IP
 
             String user = "postgres";
             String password = "abc123";

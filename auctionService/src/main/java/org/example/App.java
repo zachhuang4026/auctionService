@@ -5,8 +5,10 @@ import com.rabbitmq.client.*;
 import org.json.JSONObject;
 
 import java.sql.*;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.PriorityQueue;
 import java.util.UUID;
 
 import static java.sql.Types.VARCHAR;
@@ -16,6 +18,8 @@ public class App {
     private final static String QUEUE_NAME_RPC = "auctionServiceRPCQueue";
     private static String POSTGRES_IP_ADDRESS;
     private static String RABBITMQ_IP_ADDRESS;
+    private static PriorityQueue<Auction> pendingAuctions;
+    private static PriorityQueue<Auction> activeAuctions;
 
     private static java.sql.Connection getPostgresConnection() {
         try {
@@ -47,7 +51,10 @@ public class App {
                 res = bid(json);
                 break;
             case "buyNow":
-                res = "buyNow todo"; // TODO
+                res = buyNow(json);
+                break;
+            case "endAuctionEarly":
+                res = endAuctionEarly(json);
                 break;
             case "startAuction":
                 res = "startAuction todo"; // TODO
@@ -130,6 +137,8 @@ public class App {
             updateBidMessage = "The new bid is not higher than the current price";
         }
 
+        // TODO: notification
+
         JSONObject res = new JSONObject();
         res.put("success", updateBidSuccess);
         res.put("message", updateBidMessage);
@@ -146,6 +155,39 @@ public class App {
             return true;
         }
         return false;
+    }
+
+    private static String buyNow(JSONObject json) {
+        String auctionID = json.getString("auctionID");
+        String userID = json.getString("userID");
+
+        JSONObject auction = new JSONObject(getAuction(json));
+        String status = auction.getString("auctionStatus");
+        if (status.equals("CLOSED")) {
+            JSONObject res = new JSONObject();
+            res.put("success", false);
+            res.put("message", "Item is no longer available");
+            return res.toString();
+        }
+
+        String updateSQL = "UPDATE auctions SET status = 'CLOSED', endTime = ?, currWinner = ? WHERE auctionID = ?;";
+        try (java.sql.Connection connection = getPostgresConnection();
+             PreparedStatement pst = connection.prepareStatement(updateSQL)) {
+            pst.setLong(1, Instant.now().getEpochSecond());
+            pst.setString(2, userID);
+            pst.setString(3, auctionID);
+            System.out.println(pst);
+            pst.executeUpdate();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // TODO: add to shopping cart
+
+        JSONObject res = new JSONObject();
+        res.put("success", true);
+        res.put("message", "success");
+        return res.toString();
     }
 
 
@@ -187,6 +229,30 @@ public class App {
         JSONObject res = new JSONObject();
         res.put("success", true);
         res.put("auctionID", auctionID);
+        return res.toString();
+    }
+
+
+    private static String endAuctionEarly(JSONObject json) {
+        JSONObject auction = new JSONObject(getAuction(json));
+        String auctionID = auction.getString("auctionID");
+
+        String updateSQL = "UPDATE auctions SET status = 'CLOSED', endTime = ? WHERE auctionID = ?;";
+        try (java.sql.Connection connection = getPostgresConnection();
+             PreparedStatement pst = connection.prepareStatement(updateSQL)) {
+            pst.setLong(1, Instant.now().getEpochSecond());
+            pst.setString(2, auctionID);
+            System.out.println(pst);
+            pst.executeUpdate();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // TODO: Add to shopping cart & notification
+
+        JSONObject res = new JSONObject();
+        res.put("success", true);  // TODO: false
+        res.put("message", "success");
         return res.toString();
     }
 
@@ -319,6 +385,9 @@ public class App {
 
     public static void main( String[] args ) throws Exception {
         System.out.println("My Auction Service");
+
+        pendingAuctions = new PriorityQueue<>((a, b) -> (int) (a.getStartTime() - b.getStartTime()));
+        activeAuctions = new PriorityQueue<>((a, b) -> (int) (a.getEndTime() - b.getEndTime()));
 
         POSTGRES_IP_ADDRESS = args[0];
         RABBITMQ_IP_ADDRESS = args[1];

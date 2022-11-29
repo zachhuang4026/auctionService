@@ -30,6 +30,10 @@ INSERT INTO auctions VALUES ('12341234-6a10-4921-bc74-5573af7ce114', 'AUCTION', 
 INSERT INTO auctions VALUES ('aaaaaaaa-6a10-4921-bc74-5573af7ce114', 'AUCTION', 'aaaaaaaa-1d50-464c-9207-e9a96ad46c95',
 1869260250, 1969264890, 3.99, NULL, 'PENDING');
 
+-- for end auction early
+INSERT INTO auctions VALUES ('66666666-6a10-4921-bc74-5573af7ce114', 'AUCTION', '66666666-1d50-464c-9207-e9a96ad46c95',
+1569260250, 1769264890, 1, '66666666-6a10-4921-bc74-5573af7ababa', 'ACTIVE');
+
 ------------------------------------------
 
 CREATE TABLE bids (

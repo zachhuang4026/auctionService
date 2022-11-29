@@ -48,6 +48,9 @@ root@auction-service-msgproducer:/src# java auctionSendRPC "{"type":"getAuction"
 root@auction-service-msgproducer:/src# java auctionSendRPC {"type":"seeActiveAuctions"}
 root@auction-service-msgproducer:/src# java auctionSendRPC {"type":"seeClosedAuctions"}
 
+root@auction-service-msgproducer:/src# java auctionSendRPC "{"type":"createAuction", "listingType":"BUYNOW", "itemID":"99999999-1d50-464c-9207-e9a96ad46c95", "startPrice":10}"
+root@auction-service-msgproducer:/src# java auctionSendRPC "{"type":"createAuction", "listingType":"AUCTION", "itemID":"88889999-1d50-464c-9207-e9a96ad46c95", "startPrice":10, "startTime":1669668372, "endTime":1769668372}"
+
 # success
 root@auction-service-msgproducer:/src# java auctionSendRPC '{"type":"bid", "auctionID":"12341234-6a10-4921-bc74-5573af7ce114", "bid": 6, "bidder":"cccccccc-6a10-4921-bc74-5573af7ce114"}'
 # fail: The new bid is not higher than the current price

@@ -2,29 +2,31 @@ package org.example;
 
 import com.google.gson.Gson;
 import com.rabbitmq.client.*;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.PriorityQueue;
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 
 import static java.sql.Types.VARCHAR;
 
 public class App {
 
     private final static String QUEUE_NAME_RPC = "auctionServiceRPCQueue";
+    private final static String QUEUE_NAME_START_END_AUCTIONS = "auctionServiceStartEndAuctionsQueue";
     private static String POSTGRES_IP_ADDRESS;
     private static String RABBITMQ_IP_ADDRESS;
-    private static PriorityQueue<Auction> pendingAuctions;
-    private static PriorityQueue<Auction> activeAuctions;
 
     private static java.sql.Connection getPostgresConnection() {
         try {
             Class.forName("org.postgresql.Driver");
-            String url = "jdbc:postgresql://" + POSTGRES_IP_ADDRESS + ":2345/auction";  // TODO: fix IP
+            String url = "jdbc:postgresql://" + POSTGRES_IP_ADDRESS + ":2345/auction";
 
             String user = "postgres";
             String password = "abc123";
@@ -56,20 +58,17 @@ public class App {
             case "endAuctionEarly":
                 res = endAuctionEarly(json);
                 break;
-            case "startAuction":
-                res = "startAuction todo"; // TODO
-                break;
-            case "endAuction":
-                res = "endAuction todo"; // TODO
-                break;
             case "createAuction":
                 res = createAuction(json);
                 break;
             case "getAuction":
                 res = getAuction(json);
                 break;
+            case "getMultipleAuctions":
+                res = getMultipleAuctions(json);
+                break;
             case "seeAllUserAuctions":
-                res = seeAllUserAuctions(json);
+                res = seeAllAuctionsBuyer(json);
                 break;
             case "seeActiveAuctions":
                 res = seeAllAuctions("ACTIVE");
@@ -99,6 +98,11 @@ public class App {
             res.put("success", false);
             res.put("message", "Auction has not started yet");
             return res.toString();
+        } else if (auction.getString("auctionStatus").equals("CLOSED")) {
+            JSONObject res = new JSONObject();
+            res.put("success", false);
+            res.put("message", "Auction has ended already");
+            return res.toString();
         }
 
         boolean updateBidSuccess = updateBid(auction, newBid);
@@ -107,14 +111,13 @@ public class App {
         if (updateBidSuccess) { // insert bid and update auction
             updateBidMessage = "success";
 
-            //String insertSQL = "INSERT INTO bids (auctionID, bid) VALUES ('" + auctionID + "', '" + bidJSON + "');";
             String insertSQL = "INSERT INTO bids (auctionID, bid) VALUES (?, cast(? as json));";
             try (java.sql.Connection connection = getPostgresConnection();
                  PreparedStatement pst = connection.prepareStatement(insertSQL)) {
                 pst.setString(1, auctionID.toString());
                 pst.setString(2, bidJSON.toString());
 
-                System.out.println(pst);////////////////////////
+                System.out.println(pst);
                 pst.executeUpdate();
             } catch (Exception e) {
                 e.printStackTrace();
@@ -127,17 +130,18 @@ public class App {
                 pst.setString(2, bidder.toString());
                 pst.setString(3, auctionID.toString());
 
-                System.out.println(pst);////////////////////////
+                System.out.println(pst);
                 pst.executeUpdate();
             } catch (Exception e) {
                 e.printStackTrace();
             }
 
+            // TODO: alert seller when their item has been bid on
+            // TODO: alert buyer via email when someone has placed a higher bid on the item they had bid current high bid on
+
         } else {
             updateBidMessage = "The new bid is not higher than the current price";
         }
-
-        // TODO: notification
 
         JSONObject res = new JSONObject();
         res.put("success", updateBidSuccess);
@@ -149,7 +153,6 @@ public class App {
     private static boolean updateBid(JSONObject auction, Bid bid) {
         double currPrice = auction.getDouble("currPrice");
         if (currPrice < bid.getBid()) {
-            // TODO: bid history (here or in bid())
             auction.put("currPrice", bid.getBid());
             auction.put("currWinner", bid.getBidder().toString());
             return true;
@@ -218,24 +221,50 @@ public class App {
             pst.setNull(7, VARCHAR);
             pst.setString(8, status);
 
-            System.out.println(pst);////////////////////////
+            System.out.println(pst);
             pst.executeUpdate();
 
-            // TODO: add auction to list
+            // Check for start and end time (sent to queue and processed by another program)
+            if (listingType.equals("AUCTION")) {
+                Auction auction = new Auction(auctionID, listingType, itemID, startTime, endTime, startPrice, null, status);
+                JSONObject auctionJSON = new JSONObject(auction);
+
+                JSONObject toSend = new JSONObject();
+                toSend.put("type", "create");
+                toSend.put("auction", auctionJSON);
+
+                ConnectionFactory factory = new ConnectionFactory();
+                factory.setHost(RABBITMQ_IP_ADDRESS);
+                try (com.rabbitmq.client.Connection rabbitMQConnection = factory.newConnection();
+                     Channel channel = rabbitMQConnection.createChannel()) {
+                    channel.queueDeclare(QUEUE_NAME_START_END_AUCTIONS, false, false, false, null);
+                    String message = toSend.toString();
+                    channel.basicPublish("", QUEUE_NAME_START_END_AUCTIONS, null, message.getBytes(StandardCharsets.UTF_8));
+                    System.out.println(" [x] Sent '" + message + "'");
+                }
+            }
+
         } catch (Exception e) {
             e.printStackTrace();
         }
 
         JSONObject res = new JSONObject();
-        res.put("success", true);
+        res.put("success", true);  // TODO: false?
         res.put("auctionID", auctionID);
         return res.toString();
     }
 
 
-    private static String endAuctionEarly(JSONObject json) {
+    private static String endAuctionEarly(JSONObject json) throws IOException, TimeoutException {
         JSONObject auction = new JSONObject(getAuction(json));
         String auctionID = auction.getString("auctionID");
+
+        if (auction.getString("auctionStatus").equals("CLOSED")) {
+            JSONObject res = new JSONObject();
+            res.put("success", false);
+            res.put("message", "Auction has already ended");
+            return res.toString();
+        }
 
         String updateSQL = "UPDATE auctions SET status = 'CLOSED', endTime = ? WHERE auctionID = ?;";
         try (java.sql.Connection connection = getPostgresConnection();
@@ -248,10 +277,24 @@ public class App {
             e.printStackTrace();
         }
 
-        // TODO: Add to shopping cart & notification
+        // Remove from the check for end time list (processed by another program)
+        JSONObject toSend = new JSONObject();
+        toSend.put("type", "endEarly");
+        toSend.put("auction", auction);
+        ConnectionFactory factory = new ConnectionFactory();
+        factory.setHost(RABBITMQ_IP_ADDRESS);
+        try (com.rabbitmq.client.Connection rabbitMQConnection = factory.newConnection();
+             Channel channel = rabbitMQConnection.createChannel()) {
+            channel.queueDeclare(QUEUE_NAME_START_END_AUCTIONS, false, false, false, null);
+            String message = toSend.toString();
+            channel.basicPublish("", QUEUE_NAME_START_END_AUCTIONS, null, message.getBytes(StandardCharsets.UTF_8));
+            System.out.println(" [x] Sent '" + message + "'");
+        }
+
+        // TODO: shopping cart
 
         JSONObject res = new JSONObject();
-        res.put("success", true);  // TODO: false
+        res.put("success", true);
         res.put("message", "success");
         return res.toString();
     }
@@ -294,14 +337,31 @@ public class App {
     }
 
 
-    private static String seeAllUserAuctions(JSONObject json) {
+    private static String getMultipleAuctions(JSONObject json) {
+        JSONArray auctionIDs = json.getJSONArray("auctionIDs");
+        List<Auction> auctions = new ArrayList<>();
+
+        for (Object s : auctionIDs) {
+            String auctionStr = getAuctionInfo(s.toString());
+            Auction auction = new Gson().fromJson(auctionStr, Auction.class);
+            auctions.add(auction);
+        }
+
+        JSONObject res = new JSONObject();
+        res.put("success", true);
+        res.put("auctions", auctions);
+        return res.toString();
+    }
+
+
+    private static String seeAllAuctionsBuyer(JSONObject json) {
         String userID = json.getString("userID");
         List<Auction> auctions = new ArrayList<>();
 
         String selectSQL = "SELECT * from auctions WHERE auctionID IN (SELECT DISTINCT auctionID from bids WHERE bid->>'bidder' = '" + userID + "');";
         try (java.sql.Connection connection = getPostgresConnection();
              PreparedStatement pst = connection.prepareStatement(selectSQL)) {
-            //System.out.println(pst);
+            System.out.println(pst);
             ResultSet rs = pst.executeQuery();
 
             while (rs.next()) {
@@ -366,7 +426,7 @@ public class App {
         String selectSQL = "SELECT bid from bids WHERE auctionID = '" + auctionID + "' ORDER BY bid->>'startTime';";
         try (java.sql.Connection connection = getPostgresConnection();
              PreparedStatement pst = connection.prepareStatement(selectSQL)) {
-            //System.out.println(pst);
+            System.out.println(pst);
             ResultSet rs = pst.executeQuery();
 
             while (rs.next()) {
@@ -385,9 +445,6 @@ public class App {
 
     public static void main( String[] args ) throws Exception {
         System.out.println("My Auction Service");
-
-        pendingAuctions = new PriorityQueue<>((a, b) -> (int) (a.getStartTime() - b.getStartTime()));
-        activeAuctions = new PriorityQueue<>((a, b) -> (int) (a.getEndTime() - b.getEndTime()));
 
         POSTGRES_IP_ADDRESS = args[0];
         RABBITMQ_IP_ADDRESS = args[1];

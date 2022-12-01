@@ -13,6 +13,9 @@ public class Auction {
     private UUID currWinner;
     private List<Bid> bidHistory;
     private AuctionStatus status;
+    private boolean oneDayNotification;
+    private boolean oneHourNotification;
+    private boolean tenMinutesNotification;
 
     public enum AuctionStatus {
         PENDING,
@@ -30,6 +33,9 @@ public class Auction {
         this.currWinner = null;
         this.bidHistory = new ArrayList<>();
         this.status = AuctionStatus.PENDING;
+        this.oneDayNotification = false;
+        this.oneHourNotification = false;
+        this.tenMinutesNotification = false;
     }
 
     public Auction(String auctionID, String listingType, String itemID, long startTime, long endTime, double currPrice, String currWinner, String status) {
@@ -40,6 +46,9 @@ public class Auction {
         this.endTime = endTime;
         this.currPrice = currPrice;
         this.currWinner = currWinner == null ? null : UUID.fromString(currWinner);
+        this.oneDayNotification = false;
+        this.oneHourNotification = false;
+        this.tenMinutesNotification = false;
         this.bidHistory = new ArrayList<>();
         if (status.equals("ACTIVE"))
             this.status = AuctionStatus.ACTIVE;
@@ -47,6 +56,14 @@ public class Auction {
             this.status = AuctionStatus.CLOSED;
         else
             this.status = AuctionStatus.PENDING;
+    }
+
+    public boolean startAuction() {
+        return false;
+    }
+
+    public boolean closeAuction() {
+        return false;
     }
 
     public AuctionStatus getAuctionStatus() {
@@ -92,5 +109,29 @@ public class Auction {
 
     public void setBidHistory(List<Bid> bidHistory) {
         this.bidHistory = bidHistory;
+    }
+
+    public void setOneDayNotification(boolean oneDayNotification) {
+        this.oneDayNotification = oneDayNotification;
+    }
+
+    public void setOneHourNotification(boolean oneHourNotification) {
+        this.oneHourNotification = oneHourNotification;
+    }
+
+    public void setTenMinutesNotification(boolean tenMinutesNotification) {
+        this.tenMinutesNotification = tenMinutesNotification;
+    }
+
+    public boolean getOneDayNotification() {
+        return oneDayNotification;
+    }
+
+    public boolean getOneHourNotification() {
+        return oneHourNotification;
+    }
+
+    public boolean getTenMinutesNotification() {
+        return tenMinutesNotification;
     }
 }

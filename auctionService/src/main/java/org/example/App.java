@@ -2,6 +2,11 @@ package org.example;
 
 import com.google.gson.Gson;
 import com.rabbitmq.client.*;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -9,9 +14,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.sql.*;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeoutException;
 
 import static java.sql.Types.VARCHAR;
@@ -22,6 +25,7 @@ public class App {
     private final static String QUEUE_NAME_START_END_AUCTIONS = "auctionServiceStartEndAuctionsQueue";
     private static String POSTGRES_IP_ADDRESS;
     private static String RABBITMQ_IP_ADDRESS;
+    private static String API_GATEWAY_IP_ADDRESS_AND_PORT;
 
     private static java.sql.Connection getPostgresConnection() {
         try {
@@ -185,7 +189,25 @@ public class App {
             e.printStackTrace();
         }
 
-        // TODO: add to shopping cart
+        String selectSQL = "SELECT itemID from auctions WHERE auctionID = ?;";
+        String itemID = "";
+        try (java.sql.Connection connection = getPostgresConnection();
+             PreparedStatement pst = connection.prepareStatement(selectSQL)) {
+            pst.setString(1, auctionID);
+            ResultSet rs = pst.executeQuery();
+            while (rs.next()) {
+                itemID = rs.getString("itemID");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // Add item to shopping cart
+        try {
+            addToShoppingCart(userID, itemID);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         JSONObject res = new JSONObject();
         res.put("success", true);
@@ -291,7 +313,34 @@ public class App {
             System.out.println(" [x] Sent '" + message + "'");
         }
 
-        // TODO: shopping cart
+        String selectSQL = "SELECT currWinner, itemID from auctions WHERE auctionID = ?;";
+        String userID = "";
+        String itemID = "";
+        try (java.sql.Connection connection = getPostgresConnection();
+             PreparedStatement pst = connection.prepareStatement(selectSQL)) {
+            pst.setString(1, auctionID);
+            ResultSet rs = pst.executeQuery();
+            while (rs.next()) {
+                userID = rs.getString("currWinner");
+                itemID = rs.getString("itemID");
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        if (userID == null) {
+            JSONObject res = new JSONObject();
+            res.put("success", true);
+            res.put("message", "No one has placed a bid on this auction");
+            return res.toString();
+        }
+
+        // Add item to shopping cart
+        try {
+            addToShoppingCart(userID, itemID);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         JSONObject res = new JSONObject();
         res.put("success", true);
@@ -443,11 +492,51 @@ public class App {
     }
 
 
+    private static void addToShoppingCart(String userID, String itemID) throws Exception {
+        JSONObject reqJSON = new JSONObject();
+//        reqJSON.put("token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50X2lkIjoiMiIsImlzX2FkbWluIjpmYWxzZSwiZXhwIjoxNjY5OTY4Nzc2fQ.QhbrmA4mUsC4V_EH9E3JZgnV1FFpgjAfFfDhYMO-O1A");
+//        json.put("email", "user");
+//        json.put("password", "user");
+        //JSONObject jsonData = new JSONObject();
+        reqJSON.put("account_id", userID);
+        reqJSON.put("item_id", itemID);
+        //reqJSON.put("data", jsonData);
+        System.out.println("Request JSON: " + reqJSON);
+
+
+        CloseableHttpClient client = HttpClients.createDefault();
+        //HttpPost httpPost = new HttpPost("http://127.0.0.1:80/addToShoppingCart");
+        HttpPost httpPost = new HttpPost("http://" + API_GATEWAY_IP_ADDRESS_AND_PORT + "/addToShoppingCart");
+
+        StringEntity entity = new StringEntity(reqJSON.toString());
+        httpPost.setEntity(entity);
+        //httpPost.setHeader("Accept", "application/json");
+        httpPost.setHeader("Content-type", "application/json");
+
+        CloseableHttpResponse res = client.execute(httpPost);
+        System.out.println(res.getStatusLine());
+
+        int statusCode = res.getStatusLine().getStatusCode();
+        if (statusCode != 200) {
+            Scanner sc = new Scanner(res.getEntity().getContent());
+            while(sc.hasNext()) {
+                System.out.println(sc.nextLine());
+            }
+            throw new Exception("An error occurred when calling addToShoppingCart");
+        } else {
+            System.out.println("Added " + itemID + " to " + userID + "'s shopping cart");
+        }
+
+        client.close();
+    }
+
+
     public static void main( String[] args ) throws Exception {
         System.out.println("My Auction Service");
 
         POSTGRES_IP_ADDRESS = args[0];
         RABBITMQ_IP_ADDRESS = args[1];
+        API_GATEWAY_IP_ADDRESS_AND_PORT = args[2];
 
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost(RABBITMQ_IP_ADDRESS);

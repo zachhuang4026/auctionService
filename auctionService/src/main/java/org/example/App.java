@@ -71,8 +71,11 @@ public class App {
             case "getMultipleAuctions":
                 res = getMultipleAuctions(json);
                 break;
-            case "seeAllUserAuctions":
+            case "seeAllAuctionsBuyer":
                 res = seeAllAuctionsBuyer(json);
+                break;
+            case "seeAllAuctionsSeller":
+                res = seeAllAuctionsSeller(json);
                 break;
             case "seeActiveAuctions":
                 res = seeAllAuctions("ACTIVE");
@@ -140,8 +143,21 @@ public class App {
                 e.printStackTrace();
             }
 
-            // TODO: alert seller when their item has been bid on
-            // TODO: alert buyer via email when someone has placed a higher bid on the item they had bid current high bid on
+            // Alert seller when their item has been bid on
+            try {
+                notify("itemBid", auction.getString("seller"), null, null);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+
+            // Alert buyer via email when someone has placed a higher bid on the item they had bid current high bid on
+            try {
+                List<String> prevBidder = new ArrayList<>();
+                prevBidder.add(auction.getString("currWinner"));
+                notify("higherBid", null, null, prevBidder);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
 
         } else {
             updateBidMessage = "The new bid is not higher than the current price";
@@ -189,20 +205,8 @@ public class App {
             e.printStackTrace();
         }
 
-        String selectSQL = "SELECT itemID from auctions WHERE auctionID = ?;";
-        String itemID = "";
-        try (java.sql.Connection connection = getPostgresConnection();
-             PreparedStatement pst = connection.prepareStatement(selectSQL)) {
-            pst.setString(1, auctionID);
-            ResultSet rs = pst.executeQuery();
-            while (rs.next()) {
-                itemID = rs.getString("itemID");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
         // Add item to shopping cart
+        String itemID = auction.getString("itemID");
         try {
             addToShoppingCart(userID, itemID);
         } catch (Exception e) {
@@ -220,6 +224,7 @@ public class App {
         String auctionID = UUID.randomUUID().toString();
         String listingType = json.getString("listingType");
         String itemID = json.getString("itemID");
+        String seller = json.getString("seller");
         double startPrice = json.getDouble("startPrice");
 
         long startTime = -1;
@@ -231,7 +236,7 @@ public class App {
             status = "PENDING";
         }
 
-        String insertSQL = "INSERT INTO auctions VALUES (?, ?, ?, ?, ?, ?, ?, ?);";
+        String insertSQL = "INSERT INTO auctions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);";
         try (java.sql.Connection connection = getPostgresConnection();
              PreparedStatement pst = connection.prepareStatement(insertSQL)) {
             pst.setString(1, auctionID);
@@ -241,14 +246,15 @@ public class App {
             pst.setLong(5, endTime);
             pst.setDouble(6, startPrice);
             pst.setNull(7, VARCHAR);
-            pst.setString(8, status);
+            pst.setString(8, seller);
+            pst.setString(9, status);
 
             System.out.println(pst);
             pst.executeUpdate();
 
             // Check for start and end time (sent to queue and processed by another program)
             if (listingType.equals("AUCTION")) {
-                Auction auction = new Auction(auctionID, listingType, itemID, startTime, endTime, startPrice, null, status);
+                Auction auction = new Auction(auctionID, listingType, itemID, startTime, endTime, startPrice, null, seller, status);
                 JSONObject auctionJSON = new JSONObject(auction);
 
                 JSONObject toSend = new JSONObject();
@@ -313,20 +319,12 @@ public class App {
             System.out.println(" [x] Sent '" + message + "'");
         }
 
-        String selectSQL = "SELECT currWinner, itemID from auctions WHERE auctionID = ?;";
-        String userID = "";
-        String itemID = "";
-        try (java.sql.Connection connection = getPostgresConnection();
-             PreparedStatement pst = connection.prepareStatement(selectSQL)) {
-            pst.setString(1, auctionID);
-            ResultSet rs = pst.executeQuery();
-            while (rs.next()) {
-                userID = rs.getString("currWinner");
-                itemID = rs.getString("itemID");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+        String userID = null;
+        if (auction.has("currWinner")) {
+            userID = auction.getString("currWinner");
         }
+        String itemID = auction.getString("itemID");
+        String seller = auction.getString("seller");
 
         if (userID == null) {
             JSONObject res = new JSONObject();
@@ -338,6 +336,13 @@ public class App {
         // Add item to shopping cart
         try {
             addToShoppingCart(userID, itemID);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        // Notify seller
+        try {
+            notify("endClosed", seller, "Auction " + auctionID + " ended early", null);
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -368,9 +373,10 @@ public class App {
                 long endTime = rs.getLong("endTime");
                 double currPrice = rs.getDouble("currPrice");
                 String currWinner = rs.getString("currWinner");
+                String seller = rs.getString("seller");
                 String status = rs.getString("status");
 
-                auction = new Auction(auctionID, listingType, itemID, startTime, endTime, currPrice, currWinner, status);
+                auction = new Auction(auctionID, listingType, itemID, startTime, endTime, currPrice, currWinner, seller, status);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -405,12 +411,32 @@ public class App {
 
     private static String seeAllAuctionsBuyer(JSONObject json) {
         String userID = json.getString("userID");
-        List<Auction> auctions = new ArrayList<>();
-
         String selectSQL = "SELECT * from auctions WHERE auctionID IN (SELECT DISTINCT auctionID from bids WHERE bid->>'bidder' = '" + userID + "');";
+        List<Auction> auctions = getAuctionsList(selectSQL);
+
+        JSONObject res = new JSONObject();
+        res.put("success", true);
+        res.put("auctions", auctions);
+        return res.toString();
+    }
+
+
+    private static String seeAllAuctionsSeller(JSONObject json) {
+        String userID = json.getString("seller");
+        String selectSQL = "SELECT * from auctions WHERE seller  = '" + userID + "');";
+        List<Auction> auctions = getAuctionsList(selectSQL);
+
+        JSONObject res = new JSONObject();
+        res.put("success", true);
+        res.put("auctions", auctions);
+        return res.toString();
+    }
+
+
+    private static List<Auction> getAuctionsList(String selectSQL) {
+        List<Auction> auctions = new ArrayList<>();
         try (java.sql.Connection connection = getPostgresConnection();
              PreparedStatement pst = connection.prepareStatement(selectSQL)) {
-            System.out.println(pst);
             ResultSet rs = pst.executeQuery();
 
             while (rs.next()) {
@@ -421,9 +447,10 @@ public class App {
                 long endTime = rs.getLong("endTime");
                 double currPrice = rs.getDouble("currPrice");
                 String currWinner = rs.getString("currWinner");
+                String seller = rs.getString("seller");
                 String status = rs.getString("status");
 
-                Auction auction = new Auction(auctionID, listingType, itemID, startTime, endTime, currPrice, currWinner, status);
+                Auction auction = new Auction(auctionID, listingType, itemID, startTime, endTime, currPrice, currWinner, seller, status);
                 auction.setBidHistory(getBidHistory(auctionID));
                 auctions.add(auction);
             }
@@ -432,10 +459,7 @@ public class App {
             e.printStackTrace();
         }
 
-        JSONObject res = new JSONObject();
-        res.put("success", true);
-        res.put("auctions", auctions);
-        return res.toString();
+        return auctions;
     }
 
 
@@ -453,9 +477,10 @@ public class App {
                 long endTime = rs.getLong("endTime");
                 double currPrice = rs.getDouble("currPrice");
                 String currWinner = rs.getString("currWinner");
+                String seller = rs.getString("seller");
                 String status = rs.getString("status");
 
-                Auction auction = new Auction(auctionID, listingType, itemID, startTime, endTime, currPrice, currWinner, status);
+                Auction auction = new Auction(auctionID, listingType, itemID, startTime, endTime, currPrice, currWinner, seller, status);
                 auction.setBidHistory(getBidHistory(auctionID));
                 auctions.add(auction);
             }
@@ -475,7 +500,6 @@ public class App {
         String selectSQL = "SELECT bid from bids WHERE auctionID = '" + auctionID + "' ORDER BY bid->>'startTime';";
         try (java.sql.Connection connection = getPostgresConnection();
              PreparedStatement pst = connection.prepareStatement(selectSQL)) {
-            System.out.println(pst);
             ResultSet rs = pst.executeQuery();
 
             while (rs.next()) {
@@ -492,6 +516,55 @@ public class App {
     }
 
 
+    // TODO: test this func
+    private static void notify(String type, String seller, String message, List<String> bidders) throws Exception {
+        JSONObject reqJSON = new JSONObject();
+
+        switch (type) {
+            case "itemBid":
+                reqJSON.put("type", "itemBid");
+                reqJSON.put("userId", seller);
+                break;
+            case "higherBid":
+                reqJSON.put("type", "higherBid");
+                reqJSON.put("userId", bidders);
+                break;
+            case "endClosed":
+                reqJSON.put("type", "endClosed");
+                reqJSON.put("sellerId", seller);
+                reqJSON.put("bidderId", bidders);
+                reqJSON.put("message", message);
+                break;
+            default:
+                throw new Exception("Type \"" + type + "\" not supported or input invalid");
+        }
+        System.out.println("API Gateway /sendEmail Request JSON: " + reqJSON);
+
+        CloseableHttpClient client = HttpClients.createDefault();
+        HttpPost httpPost = new HttpPost("http://" + API_GATEWAY_IP_ADDRESS_AND_PORT + "/sendEmail");
+
+        StringEntity entity = new StringEntity(reqJSON.toString());
+        httpPost.setEntity(entity);
+        httpPost.setHeader("Content-type", "application/json");
+
+        CloseableHttpResponse res = client.execute(httpPost);
+        System.out.println(res.getStatusLine());
+
+        int statusCode = res.getStatusLine().getStatusCode();
+        if (statusCode != 200) {
+            Scanner sc = new Scanner(res.getEntity().getContent());
+            while (sc.hasNext()) {
+                System.out.println(sc.nextLine());
+            }
+            throw new Exception("An error occurred when calling sendEmail");
+        } else {
+            System.out.println("Email/Alert sent (type: " + type + ")");
+        }
+
+        client.close();
+    }
+
+
     private static void addToShoppingCart(String userID, String itemID) throws Exception {
         JSONObject reqJSON = new JSONObject();
 //        reqJSON.put("token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50X2lkIjoiMiIsImlzX2FkbWluIjpmYWxzZSwiZXhwIjoxNjY5OTY4Nzc2fQ.QhbrmA4mUsC4V_EH9E3JZgnV1FFpgjAfFfDhYMO-O1A");
@@ -501,7 +574,7 @@ public class App {
         reqJSON.put("account_id", userID);
         reqJSON.put("item_id", itemID);
         //reqJSON.put("data", jsonData);
-        System.out.println("Request JSON: " + reqJSON);
+        System.out.println("API Gateway /addToShoppingCart Request JSON: " + reqJSON);
 
 
         CloseableHttpClient client = HttpClients.createDefault();

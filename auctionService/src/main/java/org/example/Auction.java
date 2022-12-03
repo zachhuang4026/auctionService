@@ -11,6 +11,7 @@ public class Auction {
     private long endTime;
     private double currPrice;
     private UUID currWinner;
+    private UUID seller;
     private List<Bid> bidHistory;
     private AuctionStatus status;
 
@@ -20,7 +21,7 @@ public class Auction {
         CLOSED,
     }
 
-    public Auction(String listingType, UUID itemID, long startTime, long endTime, double startPrice) {
+    public Auction(String listingType, UUID itemID, long startTime, long endTime, double startPrice, UUID seller) {
         this.auctionID = UUID.randomUUID();
         this.listingType = listingType;
         this.itemID = itemID;
@@ -28,11 +29,12 @@ public class Auction {
         this.endTime = endTime;
         this.currPrice = startPrice;
         this.currWinner = null;
+        this.seller = seller;
         this.bidHistory = new ArrayList<>();
         this.status = AuctionStatus.PENDING;
     }
 
-    public Auction(String auctionID, String listingType, String itemID, long startTime, long endTime, double currPrice, String currWinner, String status) {
+    public Auction(String auctionID, String listingType, String itemID, long startTime, long endTime, double currPrice, String currWinner, String seller, String status) {
         this.auctionID = UUID.fromString(auctionID);
         this.listingType = listingType;
         this.itemID = UUID.fromString(itemID);
@@ -40,6 +42,7 @@ public class Auction {
         this.endTime = endTime;
         this.currPrice = currPrice;
         this.currWinner = currWinner == null ? null : UUID.fromString(currWinner);
+        this.seller = UUID.fromString(seller);
         this.bidHistory = new ArrayList<>();
         if (status.equals("ACTIVE"))
             this.status = AuctionStatus.ACTIVE;
@@ -76,6 +79,10 @@ public class Auction {
 
     public UUID getCurrWinner() {
         return currWinner;
+    }
+
+    public UUID getSeller() {
+        return seller;
     }
 
     public long getStartTime() {

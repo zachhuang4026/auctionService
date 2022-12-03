@@ -398,6 +398,7 @@ public class App {
                 String status = rs.getString("status");
 
                 auction = new Auction(auctionID, listingType, itemID, startTime, endTime, currPrice, currWinner, seller, status);
+                auction.setBidHistory(getBidHistory(auctionID));
             }
         } catch (Exception e) {
             e.printStackTrace();

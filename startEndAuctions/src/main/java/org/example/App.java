@@ -140,7 +140,6 @@ public class App {
         for (Auction auction : activeAuctions.values()) {
             String auctionID = auction.getAuctionID().toString();
             String seller = auction.getSeller().toString();
-            List<String> bidders = getBidders(auctionID);
 
             if (auction.getEndTime() <= Instant.now().getEpochSecond() + 24 * 60 * 60
                     && auction.getEndTime() > Instant.now().getEpochSecond() + 60 * 60
@@ -150,7 +149,7 @@ public class App {
 
                 String message = "Auction ID: " + auctionID + " - 1 day til the auction ends";
                 try {
-                    notify("endClosed", seller, message, bidders);
+                    notify("endClosed", seller, message, getBidders(auctionID));
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -164,7 +163,7 @@ public class App {
 
                 String message = "Auction ID: " + auctionID + " - 1 hour til the auction ends";
                 try {
-                    notify("endClosed", seller, message, bidders);
+                    notify("endClosed", seller, message, getBidders(auctionID));
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -178,7 +177,7 @@ public class App {
 
                 String message = "Auction ID: " + auctionID + " - 10 minutes til the auction ends";
                 try {
-                    notify("endClosed", seller, message, bidders);
+                    notify("endClosed", seller, message, getBidders(auctionID));
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -189,7 +188,7 @@ public class App {
 
                 String message = "Auction ID: " + auctionID + " - The auction has ended";
                 try {
-                    notify("endClosed", seller, message, bidders);
+                    notify("endClosed", seller, message, getBidders(auctionID));
                 } catch (Exception e) {
                     e.printStackTrace();
                 }

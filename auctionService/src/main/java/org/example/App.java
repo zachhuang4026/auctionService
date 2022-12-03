@@ -112,6 +112,11 @@ public class App {
             return res.toString();
         }
 
+        String prevWinner = null;
+        if (auction.has("currWinner")) {
+            prevWinner = auction.getString("currWinner");
+        }
+
         boolean updateBidSuccess = updateBid(auction, newBid);
         String updateBidMessage = "";
 
@@ -151,12 +156,14 @@ public class App {
             }
 
             // Alert buyer via email when someone has placed a higher bid on the item they had bid current high bid on
-            try {
-                List<String> prevBidder = new ArrayList<>();
-                prevBidder.add(auction.getString("currWinner"));
-                notify("higherBid", null, null, prevBidder);
-            } catch (Exception e) {
-                e.printStackTrace();
+            if (prevWinner != null) {
+                try {
+                    List<String> prevBidder = new ArrayList<>();
+                    prevBidder.add(prevWinner);
+                    notify("higherBid", null, null, prevBidder);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
             }
 
         } else {
@@ -342,7 +349,7 @@ public class App {
 
         // Notify seller
         try {
-            notify("endClosed", seller, "Auction " + auctionID + " ended early", null);
+            notify("endClosed", seller, "Auction " + auctionID + " ended early", getBidders(auctionID));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -351,6 +358,25 @@ public class App {
         res.put("success", true);
         res.put("message", "success");
         return res.toString();
+    }
+
+
+    private static List<String> getBidders(String auctionID) {
+        String selectSQL = "SELECT DISTINCT bid->>'bidder' AS bidder from bids WHERE bid->>'auctionID' = '" + auctionID + "'";
+        List<String> bidders = new ArrayList<>();
+        try (java.sql.Connection connection = getPostgresConnection();
+             PreparedStatement pst = connection.prepareStatement(selectSQL)) {
+            ResultSet rs = pst.executeQuery();
+
+            while (rs.next()) {
+                String bidder = rs.getString("bidder");
+                bidders.add(bidder);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return bidders;
     }
 
 
@@ -384,8 +410,6 @@ public class App {
 
         assert auction != null;
         JSONObject res = new JSONObject(auction);
-
-        //System.out.println(res);
 
         res.put("success", true);
         return res.toString();
@@ -567,23 +591,16 @@ public class App {
 
     private static void addToShoppingCart(String userID, String itemID) throws Exception {
         JSONObject reqJSON = new JSONObject();
-//        reqJSON.put("token", "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhY2NvdW50X2lkIjoiMiIsImlzX2FkbWluIjpmYWxzZSwiZXhwIjoxNjY5OTY4Nzc2fQ.QhbrmA4mUsC4V_EH9E3JZgnV1FFpgjAfFfDhYMO-O1A");
-//        json.put("email", "user");
-//        json.put("password", "user");
-        //JSONObject jsonData = new JSONObject();
         reqJSON.put("account_id", userID);
         reqJSON.put("item_id", itemID);
-        //reqJSON.put("data", jsonData);
         System.out.println("API Gateway /addToShoppingCart Request JSON: " + reqJSON);
 
 
         CloseableHttpClient client = HttpClients.createDefault();
-        //HttpPost httpPost = new HttpPost("http://127.0.0.1:80/addToShoppingCart");
         HttpPost httpPost = new HttpPost("http://" + API_GATEWAY_IP_ADDRESS_AND_PORT + "/addToShoppingCart");
 
         StringEntity entity = new StringEntity(reqJSON.toString());
         httpPost.setEntity(entity);
-        //httpPost.setHeader("Accept", "application/json");
         httpPost.setHeader("Content-type", "application/json");
 
         CloseableHttpResponse res = client.execute(httpPost);

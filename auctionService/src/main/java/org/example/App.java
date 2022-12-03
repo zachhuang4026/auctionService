@@ -42,11 +42,6 @@ public class App {
     }
 
 
-    private static void closePostgresConnection() {
-        // TODO (need this??)
-    }
-
-
     private static String dispatch(String message) throws Exception {
         JSONObject json = new JSONObject(message);
         String method = json.getString("type");
@@ -284,7 +279,7 @@ public class App {
         }
 
         JSONObject res = new JSONObject();
-        res.put("success", true);  // TODO: false?
+        res.put("success", true);
         res.put("auctionID", auctionID);
         return res.toString();
     }
@@ -540,7 +535,6 @@ public class App {
     }
 
 
-    // TODO: test this func
     private static void notify(String type, String seller, String message, List<String> bidders) throws Exception {
         JSONObject reqJSON = new JSONObject();
 

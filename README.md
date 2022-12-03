@@ -1,3 +1,12 @@
+(need update)
+
+## Maven Build
+**To build the jar file**  
+In both auctionService/ and startEndAuctions/ project directories, run:
+```
+mvn package
+```
+
 ## Containers Setup
 
 **RabbitMQ**
@@ -13,8 +22,6 @@ docker run --name auctionServicePostgres -e POSTGRES_PASSWORD=abc123 -p 5432:543
 docker exec -it auctionServicePostgres /bin/bash
 ```
 
-**PostgreSQL pgAdmin**  
-(don't really need it)  
 **Auction Service Server**
 ```
 docker import auctionServiceMsgProducer.tar.gz ubuntu:auctionServiceMsgProducer

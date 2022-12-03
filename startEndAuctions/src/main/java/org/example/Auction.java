@@ -11,6 +11,7 @@ public class Auction {
     private long endTime;
     private double currPrice;
     private UUID currWinner;
+    private UUID seller;
     private List<Bid> bidHistory;
     private AuctionStatus status;
     private boolean oneDayNotification;
@@ -23,7 +24,7 @@ public class Auction {
         CLOSED,
     }
 
-    public Auction(String listingType, UUID itemID, long startTime, long endTime, double startPrice) {
+    public Auction(String listingType, UUID itemID, long startTime, long endTime, double startPrice, UUID seller) {
         this.auctionID = UUID.randomUUID();
         this.listingType = listingType;
         this.itemID = itemID;
@@ -31,6 +32,7 @@ public class Auction {
         this.endTime = endTime;
         this.currPrice = startPrice;
         this.currWinner = null;
+        this.seller = seller;
         this.bidHistory = new ArrayList<>();
         this.status = AuctionStatus.PENDING;
         this.oneDayNotification = false;
@@ -38,7 +40,7 @@ public class Auction {
         this.tenMinutesNotification = false;
     }
 
-    public Auction(String auctionID, String listingType, String itemID, long startTime, long endTime, double currPrice, String currWinner, String status) {
+    public Auction(String auctionID, String listingType, String itemID, long startTime, long endTime, double currPrice, String currWinner, String status, String seller) {
         this.auctionID = UUID.fromString(auctionID);
         this.listingType = listingType;
         this.itemID = UUID.fromString(itemID);
@@ -46,6 +48,7 @@ public class Auction {
         this.endTime = endTime;
         this.currPrice = currPrice;
         this.currWinner = currWinner == null ? null : UUID.fromString(currWinner);
+        this.seller = UUID.fromString(seller);
         this.oneDayNotification = false;
         this.oneHourNotification = false;
         this.tenMinutesNotification = false;
@@ -56,14 +59,6 @@ public class Auction {
             this.status = AuctionStatus.CLOSED;
         else
             this.status = AuctionStatus.PENDING;
-    }
-
-    public boolean startAuction() {
-        return false;
-    }
-
-    public boolean closeAuction() {
-        return false;
     }
 
     public AuctionStatus getAuctionStatus() {
@@ -101,6 +96,10 @@ public class Auction {
 
     public long getEndTime() {
         return endTime;
+    }
+
+    public UUID getSeller() {
+        return seller;
     }
 
     public List<Bid> getBidHistory() {

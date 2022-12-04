@@ -293,10 +293,10 @@ public class App {
             default:
                 throw new Exception("Type \"" + type + "\" not supported or input invalid");
         }
-        System.out.println("API Gateway /sendEmail Request JSON: " + reqJSON);
+        System.out.println("API Gateway /sendEmailInternal Request JSON: " + reqJSON);
 
         CloseableHttpClient client = HttpClients.createDefault();
-        HttpPost httpPost = new HttpPost("http://" + API_GATEWAY_IP_ADDRESS_AND_PORT + "/sendEmail");
+        HttpPost httpPost = new HttpPost("http://" + API_GATEWAY_IP_ADDRESS_AND_PORT + "/sendEmailInternal");
 
         StringEntity entity = new StringEntity(reqJSON.toString());
         httpPost.setEntity(entity);
@@ -324,10 +324,10 @@ public class App {
         JSONObject reqJSON = new JSONObject();
         reqJSON.put("account_id", userID);
         reqJSON.put("item_id", itemID);
-        System.out.println("API Gateway /addToShoppingCart Request JSON: " + reqJSON);
+        System.out.println("API Gateway /addToShoppingCartInternal Request JSON: " + reqJSON);
 
         CloseableHttpClient client = HttpClients.createDefault();
-        HttpPost httpPost = new HttpPost("http://" + API_GATEWAY_IP_ADDRESS_AND_PORT + "/addToShoppingCart");
+        HttpPost httpPost = new HttpPost("http://" + API_GATEWAY_IP_ADDRESS_AND_PORT + "/addToShoppingCartInternal");
 
         StringEntity entity = new StringEntity(reqJSON.toString());
         httpPost.setEntity(entity);

@@ -65,9 +65,8 @@ public class Auction {
         return this.status;
     }
 
-    public boolean setAuctionStatus(AuctionStatus status) {
+    public void setAuctionStatus(AuctionStatus status) {
         this.status = status;
-        return true;
     }
 
     public UUID getAuctionID() {

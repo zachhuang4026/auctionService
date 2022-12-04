@@ -476,6 +476,9 @@ public class App {
         for (Object s : auctionIDs) {
             String auctionStr = getAuctionInfo(s.toString());
             Auction auction = new Gson().fromJson(auctionStr, Auction.class);
+            JSONObject auctionJSON = new JSONObject(auctionStr);
+            String status = auctionJSON.getString("auctionStatus");
+            auction.setAuctionStatus(status);
             auctions.add(auction);
         }
 
@@ -500,7 +503,7 @@ public class App {
 
     private static String seeAllAuctionsSeller(JSONObject json) {
         String userID = json.getString("seller");
-        String selectSQL = "SELECT * from auctions WHERE seller  = '" + userID + "');";
+        String selectSQL = "SELECT * from auctions WHERE seller  = '" + userID + "';";
         List<Auction> auctions = getAuctionsList(selectSQL);
 
         JSONObject res = new JSONObject();
@@ -543,7 +546,7 @@ public class App {
     private static String seeAllAuctions(String requestStatus) {
         List<Auction> auctions = new ArrayList<>();
         try (java.sql.Connection connection = getPostgresConnection();
-             PreparedStatement pst = connection.prepareStatement("SELECT * FROM auctions WHERE listingType = 'AUCTION' AND status = '" + requestStatus + "';")) {
+             PreparedStatement pst = connection.prepareStatement("SELECT * FROM auctions WHERE status = '" + requestStatus + "';")) {
             ResultSet rs = pst.executeQuery();
 
             while (rs.next()) {

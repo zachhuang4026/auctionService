@@ -56,9 +56,17 @@ public class Auction {
         return this.status;
     }
 
-    public boolean setAuctionStatus(AuctionStatus status) {
+    public void setAuctionStatus(AuctionStatus status) {
         this.status = status;
-        return true;
+    }
+
+    public void setAuctionStatus(String status) {
+        if (status.equals("ACTIVE"))
+            this.status = AuctionStatus.ACTIVE;
+        else if (status.equals("CLOSED"))
+            this.status = AuctionStatus.CLOSED;
+        else
+            this.status = AuctionStatus.PENDING;
     }
 
     public UUID getAuctionID() {

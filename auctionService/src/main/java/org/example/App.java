@@ -57,6 +57,9 @@ public class App {
             case "endAuctionEarly":
                 res = endAuctionEarly(json);
                 break;
+            case "sellerDeleteAuction":
+                res = sellerDeleteAuction(json);
+                break;
             case "createAuction":
                 res = createAuction(json);
                 break;
@@ -319,6 +322,8 @@ public class App {
             String message = toSend.toString();
             channel.basicPublish("", QUEUE_NAME_START_END_AUCTIONS, null, message.getBytes(StandardCharsets.UTF_8));
             System.out.println(" [x] Sent '" + message + "'");
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
         String userID = null;
@@ -345,6 +350,58 @@ public class App {
         // Notify seller
         try {
             notify("endClosed", seller, "Auction " + auctionID + " ended early", getBidders(auctionID));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        JSONObject res = new JSONObject();
+        res.put("success", true);
+        res.put("message", "success");
+        return res.toString();
+    }
+
+
+    private static String sellerDeleteAuction(JSONObject json) {
+        JSONObject auction = new JSONObject(getAuction(json));
+        String auctionID = auction.getString("auctionID");
+
+        if (auction.getString("auctionStatus").equals("CLOSED")) {
+            JSONObject res = new JSONObject();
+            res.put("success", false);
+            res.put("message", "Auction has already ended");
+            return res.toString();
+        }
+
+        if (auction.has("currWinner")) {
+            JSONObject res = new JSONObject();
+            res.put("success", false);
+            res.put("message", "Cannot close this auction because there is at least one bid on it");
+            return res.toString();
+        }
+
+        // Remove from the check for end time list (processed by another program)
+        JSONObject toSend = new JSONObject();
+        toSend.put("type", "endEarly");
+        toSend.put("auction", auction);
+        ConnectionFactory factory = new ConnectionFactory();
+        factory.setHost(RABBITMQ_IP_ADDRESS);
+        try (com.rabbitmq.client.Connection rabbitMQConnection = factory.newConnection();
+             Channel channel = rabbitMQConnection.createChannel()) {
+            channel.queueDeclare(QUEUE_NAME_START_END_AUCTIONS, false, false, false, null);
+            String message = toSend.toString();
+            channel.basicPublish("", QUEUE_NAME_START_END_AUCTIONS, null, message.getBytes(StandardCharsets.UTF_8));
+            System.out.println(" [x] Sent '" + message + "'");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        String updateSQL = "UPDATE auctions SET status = 'CLOSED', endTime = ? WHERE auctionID = ?;";
+        try (java.sql.Connection connection = getPostgresConnection();
+             PreparedStatement pst = connection.prepareStatement(updateSQL)) {
+            pst.setLong(1, Instant.now().getEpochSecond());
+            pst.setString(2, auctionID);
+            System.out.println(pst);
+            pst.executeUpdate();
         } catch (Exception e) {
             e.printStackTrace();
         }

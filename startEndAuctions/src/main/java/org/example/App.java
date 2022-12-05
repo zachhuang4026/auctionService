@@ -322,8 +322,10 @@ public class App {
 
     private static void addToShoppingCart(String userID, String itemID) throws Exception {
         JSONObject reqJSON = new JSONObject();
-        reqJSON.put("account_id", userID);
-        reqJSON.put("item_id", itemID);
+        JSONObject data = new JSONObject();
+        data.put("account_id", userID);
+        data.put("item_id", itemID);
+        reqJSON.put("data", data);
         System.out.println("API Gateway /addToShoppingCartInternal Request JSON: " + reqJSON);
 
         CloseableHttpClient client = HttpClients.createDefault();

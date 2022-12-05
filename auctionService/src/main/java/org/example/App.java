@@ -233,11 +233,10 @@ public class App {
         double startPrice = json.getDouble("startPrice");
 
         long startTime = -1;
-        long endTime = -1;
+        long endTime = json.getLong("endTime");
         String status = "ACTIVE";
         if (listingType.equals("AUCTION")) {
             startTime = json.getLong("startTime");
-            endTime = json.getLong("endTime");
             status = "PENDING";
         }
 
@@ -258,23 +257,21 @@ public class App {
             pst.executeUpdate();
 
             // Check for start and end time (sent to queue and processed by another program)
-            if (listingType.equals("AUCTION")) {
-                Auction auction = new Auction(auctionID, listingType, itemID, startTime, endTime, startPrice, null, seller, status);
-                JSONObject auctionJSON = new JSONObject(auction);
+            Auction auction = new Auction(auctionID, listingType, itemID, startTime, endTime, startPrice, null, seller, status);
+            JSONObject auctionJSON = new JSONObject(auction);
 
-                JSONObject toSend = new JSONObject();
-                toSend.put("type", "create");
-                toSend.put("auction", auctionJSON);
+            JSONObject toSend = new JSONObject();
+            toSend.put("type", "create");
+            toSend.put("auction", auctionJSON);
 
-                ConnectionFactory factory = new ConnectionFactory();
-                factory.setHost(RABBITMQ_IP_ADDRESS);
-                try (com.rabbitmq.client.Connection rabbitMQConnection = factory.newConnection();
-                     Channel channel = rabbitMQConnection.createChannel()) {
-                    channel.queueDeclare(QUEUE_NAME_START_END_AUCTIONS, false, false, false, null);
-                    String message = toSend.toString();
-                    channel.basicPublish("", QUEUE_NAME_START_END_AUCTIONS, null, message.getBytes(StandardCharsets.UTF_8));
-                    System.out.println(" [x] Sent '" + message + "'");
-                }
+            ConnectionFactory factory = new ConnectionFactory();
+            factory.setHost(RABBITMQ_IP_ADDRESS);
+            try (com.rabbitmq.client.Connection rabbitMQConnection = factory.newConnection();
+                 Channel channel = rabbitMQConnection.createChannel()) {
+                channel.queueDeclare(QUEUE_NAME_START_END_AUCTIONS, false, false, false, null);
+                String message = toSend.toString();
+                channel.basicPublish("", QUEUE_NAME_START_END_AUCTIONS, null, message.getBytes(StandardCharsets.UTF_8));
+                System.out.println(" [x] Sent '" + message + "'");
             }
 
         } catch (Exception e) {
@@ -333,6 +330,13 @@ public class App {
         String itemID = auction.getString("itemID");
         String seller = auction.getString("seller");
 
+        // Notify seller
+        try {
+            notify("endClosed", seller, "Auction " + auctionID + " ended early", getBidders(auctionID));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         if (userID == null) {
             JSONObject res = new JSONObject();
             res.put("success", true);
@@ -343,13 +347,6 @@ public class App {
         // Add item to shopping cart
         try {
             addToShoppingCart(userID, itemID);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        // Notify seller
-        try {
-            notify("endClosed", seller, "Auction " + auctionID + " ended early", getBidders(auctionID));
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -646,8 +643,10 @@ public class App {
 
     private static void addToShoppingCart(String userID, String itemID) throws Exception {
         JSONObject reqJSON = new JSONObject();
-        reqJSON.put("account_id", userID);
-        reqJSON.put("item_id", itemID);
+        JSONObject data = new JSONObject();
+        data.put("account_id", userID);
+        data.put("item_id", itemID);
+        reqJSON.put("data", data);
         System.out.println("API Gateway /addToShoppingCartInternal Request JSON: " + reqJSON);
 
 
